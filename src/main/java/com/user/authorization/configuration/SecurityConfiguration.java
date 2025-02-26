@@ -10,10 +10,13 @@ import org.springframework.jdbc.datasource.init.DataSourceInitializer;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.resource.OAuth2ResourceServerConfigurer;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
@@ -27,8 +30,10 @@ import org.springframework.security.provisioning.JdbcUserDetailsManager;
 import org.springframework.security.provisioning.UserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.server.header.XFrameOptionsServerHttpHeadersWriter;
 
 import javax.sql.DataSource;
+import java.time.Duration;
 import java.util.UUID;
 
 @Configuration
@@ -37,26 +42,13 @@ public class SecurityConfiguration {
     @Bean
     SecurityFilterChain authorizationServerFilterChain(HttpSecurity http) throws Exception {
         http.with(OAuth2AuthorizationServerConfigurer.authorizationServer(), Customizer.withDefaults());
-
-        /*OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
-        http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
-                .oidc(Customizer.withDefaults());
-        http
-                .exceptionHandling(exceptions ->
-                        exceptions.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login"))
-                )
-                .oauth2ResourceServer(OAuth2ResourceServerConfigurer::jwt());*/
+        http.headers(headers -> headers
+                .contentSecurityPolicy(contentSecurityPolicyConfig -> contentSecurityPolicyConfig.policyDirectives("script-src 'self http://some-trusted-scrips.com; object-src http://some-trusted-plugin; report-uri /csp-report-endpoint/ '"))
+                .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
+                .httpStrictTransportSecurity(hstsConfig -> hstsConfig.includeSubDomains(true).maxAgeInSeconds(31536000).preload(true))
+                .xssProtection(HeadersConfigurer.XXssConfig::disable));
         return http.build();
     }
-
-   /* @Bean
-    public RegisteredClientRepository registeredClientRepository(JdbcTemplate jdbcTemplate){
-        JdbcRegisteredClientRepository registeredClientRepository = new JdbcRegisteredClientRepository(jdbcTemplate);
-        RegisteredClient existingClient = registeredClientRepository.findByClientId("front-client");
-        if(existingClient == null){
-
-        }
-    }*/
 
     @Bean
     UserDetailsService inMemoryUserDetailsManager() {
@@ -65,6 +57,11 @@ public class SecurityConfiguration {
                         .password("root")
                         .roles("student").build()
         );
+    }
+
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 
     @Bean
@@ -94,7 +91,7 @@ public class SecurityConfiguration {
                         User.builder()
                                 //.roles("ROLE_USER")
                                 .username(userName)
-                               // .password("{bcrypt}$2a$10$jdJGhzsiIqYFpjJiYWMl/eKDOd8vdyQis2aynmFN0dgJ53XvpzzwC")
+                                // .password("{bcrypt}$2a$10$jdJGhzsiIqYFpjJiYWMl/eKDOd8vdyQis2aynmFN0dgJ53XvpzzwC")
                                 .password("{noop}secret")
                                 .build()
                 );

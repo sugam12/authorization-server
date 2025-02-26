@@ -10,10 +10,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import static org.hamcrest.CoreMatchers.is;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -36,11 +35,13 @@ public class SecurityConfigurationTests {
 
     @Test
     void testGetAccessTokenPass() throws Exception {
-        mockMvc.perform(post(GET_ACCESS_TOKEN_ENDPOINT).param("client_id", "client-1")
+        mockMvc.perform(post(GET_ACCESS_TOKEN_ENDPOINT).param("client_id", "root")
                         .param("client_secret", "secret")
                         .param("grant_type", "client_credentials"))
                 .andExpect(status().isOk())
                 .andDo(print())
+                .andExpect(header().string("X-Frame-Options","SAMEORIGIN"))
+                .andExpect(header().string("Content-Security-Policy","script-src 'self http://some-trusted-scrips.com; object-src http://some-trusted-plugin; report-uri /csp-report-endpoint/ '"))
                 .andExpect(jsonPath("$.token_type", is("Bearer")))
                 .andExpect(jsonPath("$.access_token").isString());
     }
